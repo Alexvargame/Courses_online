@@ -13,7 +13,7 @@ def user_create(*, email, username, name=None, surname=None, phone=None, is_acti
     return user
 
 @transaction.atomic
-def change_bonus_balance(user_id, user_promocode_id, description, action):
+def change_bonus_balance_by_promocode(user_id, user_promocode_id, description, action):
     user = BaseUser.objects.select_for_update().get(id=user_id)
     user_promocode = UserPromoCode.objects.get(id=user_promocode_id)
     if user_promocode.is_used:
@@ -30,8 +30,23 @@ def change_bonus_balance(user_id, user_promocode_id, description, action):
         description=description
     )
     user_promocode.is_used = True
+    user_promocode.used_at = timezone.now()
     user_promocode.save()
     user.bonus_balance += amount
     user.save()
+    return bonus_transaction
+
+@transaction.atomic
+def change_bonus_balance_by_purchase(user, amount, description, action):
+    # user = BaseUser.objects.select_for_update().get(id=user_id)
+    if action == "crediting bonuses":
+        amount = amount
+    elif action == "deducting bonuses":
+        amount = -amount
+    bonus_transaction = BonusTransaction.objects.create(
+        user=user,
+        amount=amount,
+        description=description
+    )
     return bonus_transaction
 

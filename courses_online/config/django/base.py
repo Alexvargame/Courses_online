@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from celery.schedules import crontab
 
 import courses_online.courses_online_apps.api.apps
 from courses_online.config.env import BASE_DIR, APPS_DIR
@@ -17,20 +18,21 @@ SECRET_KEY = 'django-insecure-nbakwwo4f%0tg6i3t0gweam%1!(q=76bw-^j*7qqt882*z#cd(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost']
 
 LOCAL_APPS = [
 
     'courses_online.courses_online_apps.api.apps.ApiConfig',
     'courses_online.courses_online_apps.common.apps.CommonConfig',
     'courses_online.courses_online_apps.users.apps.UsersConfig',
-
-
+    'courses_online.courses_online_apps.courses.apps.CoursesConfig',
+    'courses_online.courses_online_apps.payments.apps.PaymentsConfig',
 
 ]
 
 THIRD_PARTY_APPS = [
     'rest_framework',
+    'drf_spectacular',
 
 ]
 # Application definition
@@ -86,6 +88,15 @@ DATABASES = {
         'NAME': BASE_DIR / 'course_online.sqlite3',
     }
 }
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_PERMISSION_CLASSES': (
+        'rest_framework.permissions.IsAuthenticated',
+    ),
+}
 
 
 # Password validation
@@ -129,3 +140,28 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.BaseUser'
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Courses Online API',
+    'DESCRIPTION': 'API для платформы онлайн-курсов',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SWAGGER_UI_SETTINGS': {
+        'persistAuthorization': True,  # сохраняет токен после обновления страницы
+    },
+}
+
+
+CELERY_BROKER_URL = 'redis://127.0.0.1:6379/0'
+CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379/0'
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+CELERY_BEAT_SCHEDULE = {
+    'deactivate_expired_access': {
+        'task': 'courses_online.courses_online_apps.payments.tasks.deactivate_expired_access',
+        'schedule': crontab(minute=0, hour=0),  # каждый день в 00:00
+    },
+}
